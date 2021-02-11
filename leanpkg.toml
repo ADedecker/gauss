@@ -1,0 +1,8 @@
+[package]
+name = "gauss"
+version = "0.1"
+lean_version = "leanprover-community/lean:3.26.0"
+path = "src"
+
+[dependencies]
+mathlib = {git = "https://github.com/leanprover-community/mathlib", rev = "030107f6fe5a9c8bb9880ed4377355f19910d617"}
