@@ -83,7 +83,6 @@ begin
   sorry,
 end
 
-/-
 lemma has_deriv_at_f (x : ℝ) : has_deriv_at f (real.exp (-x^2)) x := 
 have key : continuous (λ x, real.exp (-x^2)), by continuity; exact complex.continuous_exp,
 integral_has_deriv_at_right (key.interval_integrable _ _) 
@@ -140,4 +139,3 @@ lemma gauss_integral : ∫ x : ℝ, real.exp (-x^2) = real.pi.sqrt :=
 begin
   sorry
 end
--/
