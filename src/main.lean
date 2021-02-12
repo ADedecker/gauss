@@ -17,9 +17,6 @@ def g : ℝ → ℝ := λ x, ∫ t in 0..1, (real.exp (-(1+t^2)*x^2))/(1+t^2)
 
 def h : ℝ → ℝ := λ x, g x + (f^2) x
 
-#check exists_has_deriv_at_eq_slope
-#check continuous_uncurry_left
-
 lemma exists_has_deriv_at_eq_slope_interval (f f' : ℝ → ℝ) {a b : ℝ}
   (hab : a ≠ b) (hf : continuous_on f (interval a b))
   (hff' : ∀ (x : ℝ), x ∈ Ioo (min a b) (max a b) → has_deriv_at f (f' x) x) :
@@ -59,26 +56,46 @@ begin
   rw real.dist_eq,
   calc abs ((∫ (t : ℝ) in a..b, f' (u t) t) - ∫ (t : ℝ) in a..b, f' x₀ t) 
       ≤ abs (∫ (t : ℝ) in a..b, abs (f' (u t) t - f' x₀ t)) : 
-          begin
-            rw ← real.norm_eq_abs,
-            rw ← integral_sub,
-            refine norm_integral_le_abs_integral_norm,
-            sorry,
-            sorry
-          end
+        begin
+          rw ← real.norm_eq_abs,
+          rw ← integral_sub,
+          refine norm_integral_le_abs_integral_norm,
+          sorry,
+          sorry
+        end
   ... = abs (∫ (t : ℝ) in Ioc a b, abs (f' (u t) t - f' x₀ t)) : 
-          by repeat {conv in (interval_integral _ _ _ _) { rw integral_of_le hab.le }}
+        by repeat {conv in (interval_integral _ _ _ _) { rw integral_of_le hab.le }}
   ... = (∫ (t : ℝ) in Ioc a b, abs (f' (u t) t - f' x₀ t)) : 
-          begin
-            rw abs_eq_self,
-            refine measure_theory.integral_nonneg (λ x, abs_nonneg _),
-          end
+        begin
+          rw abs_eq_self,
+          refine measure_theory.integral_nonneg (λ x, abs_nonneg _),
+        end
   ... ≤ (∫ (t : ℝ) in Ioc a b, (ε/2)/(b-a)) : 
-          begin
-            refine measure_theory.integral_mono sorry sorry 
-              (λ t, le_of_lt $ this (u t, t) (x₀, t) _ _ _),
-          end
-  ... < ε : sorry,
+        begin
+          have meas_ab : measurable_set (Ioc a b) := measurable_set_Ioc,
+          rw ← measure_theory.integral_indicator meas_ab,
+          rw ← measure_theory.integral_indicator meas_ab,
+          refine measure_theory.integral_mono _ _ (λ t, _),
+          { rw measure_theory.integrable_indicator_iff meas_ab,
+            refine measure_theory.integrable_on.mono_set _ Ioc_subset_Icc_self,
+            refine continuous.integrable_on_compact compact_Icc _,
+            refine continuous_abs.comp _,
+            sorry },
+          { rw measure_theory.integrable_indicator_iff meas_ab,
+            refine measure_theory.integrable_on.mono_set _ Ioc_subset_Icc_self,
+            refine continuous.integrable_on_compact compact_Icc _,
+            simp [continuous_const] },
+          by_cases ht : t ∈ Ioc a b,
+          { have := le_of_lt (this (u t, t) (x₀, t) sorry sorry sorry),
+            simpa [ht] using this },
+          { simp [ht] },
+        end
+  ... = (b-a) * (ε/2/(b-a)) :
+        by rw [measure_theory.set_integral_const, real.volume_Ioc,
+               ennreal.to_real_of_real (show 0 ≤ b - a, by linarith),
+               smul_eq_mul]
+  ... = ε/2 : mul_div_cancel' (ε/2) (show b - a ≠ 0, by linarith)
+  ... < ε : by linarith,
   sorry,
   sorry,
 end
@@ -115,13 +132,19 @@ begin
   rw h,
   convert ← (has_deriv_at_g x).add (has_deriv_at_f_sq x),
   rw add_eq_zero_iff_eq_neg,
-  conv in (-(1+_^2)*x^2) { ring, rw [← mul_pow, mul_comm, sub_eq_add_neg] },
-  conv in (real.exp _) { rw real.exp_add, rw mul_comm },
-  calc ∫ t in 0..1, (-2) * x * (real.exp (-x ^ 2) * real.exp (-(t * x) ^ 2)) 
-      = ∫ t in 0..1, (-2 * real.exp (-x ^ 2)) * (real.exp (-(t * x) ^ 2) * x) : by congr; ext t; ring
-  ... = ∫ t in 0..1, (-2 * real.exp (-x ^ 2)) • (real.exp (-(t * x) ^ 2) * x) : by congr; ext t; rw smul_eq_mul
-  ... = (-2 * real.exp (-x ^ 2)) • ∫ t in 0..1, (real.exp (-(t * x) ^ 2) * x) : integral_smul _
-  ... = (-2 * real.exp (-x ^ 2)) * ∫ t in 0..1, (real.exp (-(t * x) ^ 2) * x) : by rw smul_eq_mul
+  calc  ∫ (t : ℝ) in 0..1, (-2) * x * real.exp (-(1 + t ^ 2) * x ^ 2)
+      = ∫ (t : ℝ) in 0..1, (-2) * x * real.exp (-(t * x) ^ 2 + -x ^ 2) :
+        by conv in (-(1+_^2)*x^2) { ring, rw [← mul_pow, mul_comm, sub_eq_add_neg] }
+  ... = ∫ t in 0..1, (-2) * x * (real.exp (-x ^ 2) * real.exp (-(t * x) ^ 2)) : 
+        by conv in (real.exp _) { rw real.exp_add, rw mul_comm }
+  ... = ∫ t in 0..1, (-2 * real.exp (-x ^ 2)) * (real.exp (-(t * x) ^ 2) * x) : 
+        by congr; ext t; ring
+  ... = ∫ t in 0..1, (-2 * real.exp (-x ^ 2)) • (real.exp (-(t * x) ^ 2) * x) : 
+        by congr; ext t; rw smul_eq_mul
+  ... = (-2 * real.exp (-x ^ 2)) • ∫ t in 0..1, (real.exp (-(t * x) ^ 2) * x) : 
+        integral_smul _
+  ... = (-2 * real.exp (-x ^ 2)) * ∫ t in 0..1, (real.exp (-(t * x) ^ 2) * x) : 
+        by rw smul_eq_mul
   ... = (-2 * real.exp (-x ^ 2)) *
           ( ((λ u, ∫ t in 0..u, real.exp (-t ^ 2)) ∘ (λ u, u * x)) 1
           - ((λ u, ∫ t in 0..u, real.exp (-t ^ 2)) ∘ (λ u, u * x)) 0 ) : 
