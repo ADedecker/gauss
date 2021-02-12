@@ -17,6 +17,18 @@ def g : ℝ → ℝ := λ x, ∫ t in 0..1, (real.exp (-(1+t^2)*x^2))/(1+t^2)
 
 def h : ℝ → ℝ := λ x, g x + (f^2) x
 
+#check is_const_of_fderiv_eq_zero
+
+lemma is_const_of_deriv_eq_zero {F : Type*} 
+  [normed_group F] [normed_space ℝ F] {f : ℝ → F} (hf : differentiable ℝ f) 
+  (hz : ∀ x, deriv f x = 0) : ∀ x y, f x = f y :=
+begin
+  apply is_const_of_fderiv_eq_zero hf (λ x, _),
+  rw [← deriv_fderiv, hz x],
+  ext u,
+  simp
+end
+
 lemma exists_has_deriv_at_eq_slope_interval (f f' : ℝ → ℝ) {a b : ℝ}
   (hab : a ≠ b) (hf : continuous_on f (interval a b))
   (hff' : ∀ (x : ℝ), x ∈ Ioo (min a b) (max a b) → has_deriv_at f (f' x) x) :
@@ -197,6 +209,26 @@ begin
   ... = (-2 * real.exp (-x ^ 2)) * ∫ t in 0..x, real.exp (-t ^ 2) : by simp
   ... = -(2 * real.exp (-x ^ 2) * ∫ t in 0..x, real.exp (-t ^ 2)) : by ring
 end
+
+lemma const_h : ∀ x, h x = h 0 :=
+λ x, is_const_of_deriv_eq_zero (λ t, (has_deriv_at_h t).differentiable_at) 
+  (λ t, (has_deriv_at_h t).deriv) x 0
+
+lemma h_zero : h 0 = real.pi / 4 :=
+begin
+  change (∫ t in 0..1, real.exp (-(1 + t^2) * 0^2) / (1 + t^2)) + 
+    (∫ (t : ℝ) in 0..0, real.exp (-t^2))^2 = real.pi / 4,
+  rw [integral_same, zero_pow zero_lt_two, add_zero],
+  conv_lhs {congr, funext, rw mul_zero, rw real.exp_zero},
+  convert integral_eq_sub_of_has_deriv_at (λ t _, t.has_deriv_at_arctan) 
+    (continuous_const.div _ _).continuous_on,
+  { rw [real.arctan_one, real.arctan_zero, sub_zero] },
+  { continuity },
+  { intro t,
+    linarith [pow_two_nonneg t] } 
+end
+
+lemma h_eq : ∀ x, h x = real.pi / 4 := h_zero ▸ const_h
 
 lemma gauss_integral : ∫ x : ℝ, real.exp (-x^2) = real.pi.sqrt :=
 begin
