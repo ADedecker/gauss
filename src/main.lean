@@ -47,29 +47,47 @@ begin
   rcases this with ⟨δ, hδ, this⟩,
   use [δ, hδ],
   rintros y₀ ⟨⟨hy₁, hy₂⟩, hy₃ : y₀ ≠ x₀⟩ hy₀x₀,
-  rw [← integral_sub, ← integral_smul],
   have key₁ := λ (t : ℝ), exists_has_deriv_at_eq_slope_interval (λ x, f x t) (λ x, f' x t) hy₃.symm 
     (@continuous_uncurry_right _ _ _ _ _ _ f t hf).continuous_on (λ x hx, hff' x t),
   choose u hu using key₁,
+  have key₂ : ∀ t, dist (u t) x₀ < δ,
+  { intro t,
+    rw [real.dist_eq, abs, max_lt_iff] at ⊢ hy₀x₀,
+    rcases hu t with ⟨⟨ht₁, ht₂⟩, _⟩,
+    by_cases hl : x₀ < y₀;
+    [skip, push_neg at hl];
+    [rw min_eq_left_of_lt hl at ht₁, rw min_eq_right hl at ht₁];
+    [rw max_eq_right_of_lt hl at ht₂, rw max_eq_left hl at ht₂];
+    split;
+    linarith },
+  have key₃ : Ioo (min x₀ y₀) (max x₀ y₀) ⊆ Icc (x₀-1) (x₀+1),
+  { by_cases hl : x₀ < y₀;
+    [skip, push_neg at hl];
+    [rw min_eq_left_of_lt hl, rw min_eq_right hl];
+    [rw max_eq_right_of_lt hl, rw max_eq_left hl];
+    rintros a ⟨ha₁, ha₂⟩;
+    split;
+    linarith },
+  have key₄ : ∀ x, continuous (f x) := λ x, @continuous_uncurry_left _ _ _ _ _ _ f x hf,
+  have key₅ : continuous (λ (t : ℝ), (y₀ - x₀)⁻¹ * (f y₀ t - f x₀ t)) :=
+    continuous_const.mul ((key₄ y₀).sub (key₄ x₀)),
+  have key₅' : continuous (λ (t : ℝ), (y₀ - x₀)⁻¹ • (f y₀ t - f x₀ t)) := key₅,
+  have key₆ : continuous (λ (t : ℝ), f' (u t) t),
+  { convert key₅,
+    ext t,
+    rw [(hu t).2, div_eq_mul_inv, mul_comm] },
+  rw [← integral_sub ((key₄ y₀).interval_integrable _ _) ((key₄ x₀).interval_integrable _ _), 
+      ← integral_smul, real.dist_eq, ← integral_sub (key₅'.interval_integrable _ _)
+        ((@continuous_uncurry_left _ _ _ _ _ _ f' x₀ hf').interval_integrable _ _)],
   conv in (_ • _)
-  { rw smul_eq_mul, rw ← div_eq_inv_mul, rw ← (hu _).2 },
-  rw real.dist_eq,
-  calc abs ((∫ (t : ℝ) in a..b, f' (u t) t) - ∫ (t : ℝ) in a..b, f' x₀ t) 
+  { dsimp, rw ← div_eq_inv_mul, rw ← (hu _).2 },
+  calc abs (∫ (t : ℝ) in a..b, f' (u t) t - f' x₀ t) 
       ≤ abs (∫ (t : ℝ) in a..b, abs (f' (u t) t - f' x₀ t)) : 
-        begin
-          rw ← real.norm_eq_abs,
-          rw ← integral_sub,
-          refine norm_integral_le_abs_integral_norm,
-          sorry,
-          sorry
-        end
+        by rw ← real.norm_eq_abs; exact norm_integral_le_abs_integral_norm
   ... = abs (∫ (t : ℝ) in Ioc a b, abs (f' (u t) t - f' x₀ t)) : 
         by repeat {conv in (interval_integral _ _ _ _) { rw integral_of_le hab.le }}
   ... = (∫ (t : ℝ) in Ioc a b, abs (f' (u t) t - f' x₀ t)) : 
-        begin
-          rw abs_eq_self,
-          refine measure_theory.integral_nonneg (λ x, abs_nonneg _),
-        end
+        by rw abs_eq_self; exact measure_theory.integral_nonneg (λ x, abs_nonneg _)
   ... ≤ (∫ (t : ℝ) in Ioc a b, (ε/2)/(b-a)) : 
         begin
           have meas_ab : measurable_set (Ioc a b) := measurable_set_Ioc,
@@ -77,27 +95,28 @@ begin
           rw ← measure_theory.integral_indicator meas_ab,
           refine measure_theory.integral_mono _ _ (λ t, _),
           { rw measure_theory.integrable_indicator_iff meas_ab,
-            refine measure_theory.integrable_on.mono_set _ Ioc_subset_Icc_self,
-            refine continuous.integrable_on_compact compact_Icc _,
-            refine continuous_abs.comp _,
-            sorry },
+            refine ((continuous_abs.comp _).integrable_on_compact compact_Icc).mono_set Ioc_subset_Icc_self,
+            refine key₆.sub (@continuous_uncurry_left _ _ _ _ _ _ f' x₀ hf') },
           { rw measure_theory.integrable_indicator_iff meas_ab,
-            refine measure_theory.integrable_on.mono_set _ Ioc_subset_Icc_self,
-            refine continuous.integrable_on_compact compact_Icc _,
-            simp [continuous_const] },
+            refine (continuous.integrable_on_compact compact_Icc _).mono_set Ioc_subset_Icc_self,
+            simp only [continuous_const]},
           by_cases ht : t ∈ Ioc a b,
-          { have := le_of_lt (this (u t, t) (x₀, t) sorry sorry sorry),
-            simpa [ht] using this },
-          { simp [ht] },
+          { have := le_of_lt (this (u t, t) (x₀, t) _ _ _),
+            { simpa only [ht, indicator_of_mem] using this},
+            { refine ⟨key₃ (hu t).1, Icc_subset_interval $ Ioc_subset_Icc_self ht⟩, },
+            { exact ⟨⟨(sub_one_lt x₀).le, (lt_add_one x₀).le⟩, 
+                Icc_subset_interval $ Ioc_subset_Icc_self ht⟩ },
+            { rw [prod.dist_eq, max_lt_iff],
+              refine ⟨key₂ t, (dist_self t).symm ▸ hδ⟩ } },
+          { simp only [ht, indicator_of_not_mem, not_false_iff]},
         end
   ... = (b-a) * (ε/2/(b-a)) :
         by rw [measure_theory.set_integral_const, real.volume_Ioc,
                ennreal.to_real_of_real (show 0 ≤ b - a, by linarith),
                smul_eq_mul]
   ... = ε/2 : mul_div_cancel' (ε/2) (show b - a ≠ 0, by linarith)
-  ... < ε : by linarith,
-  sorry,
-  sorry,
+  ... < ε : by linarith [hε],
+  all_goals {apply_instance}
 end
 
 lemma has_deriv_at_f (x : ℝ) : has_deriv_at f (real.exp (-x^2)) x := 
@@ -162,3 +181,4 @@ lemma gauss_integral : ∫ x : ℝ, real.exp (-x^2) = real.pi.sqrt :=
 begin
   sorry
 end
+
