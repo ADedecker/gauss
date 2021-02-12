@@ -131,9 +131,30 @@ begin
   ring
 end
 
-lemma has_deriv_at_g (x : ℝ) : has_deriv_at g (∫ t in 0..1, -2 * x * real.exp (-(1+t^2)*x^2)) x := 
+lemma has_deriv_at_g (x₀ : ℝ) : has_deriv_at g (∫ t in 0..1, -2 * x₀ * real.exp (-(1+t^2)*x₀^2)) x₀ := 
 begin
-  sorry
+  have key₁ : continuous (λ (t : ℝ), 1 + t^2) := by continuity,
+  have key₂ : continuous ↿(λ x t, real.exp (-(1+t^2) * x^2)) :=
+    real.continuous_exp.comp ((key₁.comp continuous_snd).neg.mul 
+      ((continuous_pow 2).comp continuous_fst)),
+  apply has_deriv_at_parametric (zero_lt_one),
+  { intros x t,
+    have step₁ : has_deriv_at (λ u, -(1 + t^2) * u^2) (-(1 + t^2) * 2 * x) x,
+    { convert (has_deriv_at_pow 2 x).const_mul (-(1 + t ^ 2)) using 1,
+      norm_cast,
+      ring },
+    have step₂ : has_deriv_at (λ u, real.exp (-(1 + t^2) * u^2)) 
+      (-(1 + t^2) * 2 * x * real.exp (-(1 + t^2) * x^2)) x,
+    { rw mul_comm, 
+      exact has_deriv_at.comp x (real.has_deriv_at_exp _) step₁ },
+    conv in (_ / _) { rw div_eq_mul_inv },
+    convert step₂.mul_const _ using 1,
+    conv_rhs {rw mul_comm, rw ← mul_assoc, rw ← mul_assoc, rw ← mul_assoc, 
+              rw mul_neg_eq_neg_mul_symm, 
+              rw inv_mul_cancel (show 1 + t^2 ≠ 0, by linarith [pow_two_nonneg t]) },
+    ring },
+  { exact key₂.div (key₁.comp continuous_snd) (λ ⟨x, t⟩, by linarith [pow_two_nonneg t]) },
+  { exact (continuous_const.mul continuous_fst).mul key₂, },
 end
 
 lemma key1 : ∀ x : ℝ, ∀ t ∈ (set.interval 0 1 : set ℝ), 
