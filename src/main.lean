@@ -8,16 +8,14 @@ import topology.uniform_space.compact_separated
 
 noncomputable theory
 
-open interval_integral
-open set
+open interval_integral set filter measure_theory
+open_locale topological_space
 
 def f : ℝ → ℝ := λ x, ∫ t in 0..x, real.exp (-t^2)
 
 def g : ℝ → ℝ := λ x, ∫ t in 0..1, (real.exp (-(1+t^2)*x^2))/(1+t^2)
 
 def h : ℝ → ℝ := λ x, g x + (f^2) x
-
-#check is_const_of_fderiv_eq_zero
 
 lemma is_const_of_deriv_eq_zero {F : Type*} 
   [normed_group F] [normed_space ℝ F] {f : ℝ → F} (hf : differentiable ℝ f) 
@@ -89,7 +87,8 @@ begin
     ext t,
     rw [(hu t).2, div_eq_mul_inv, mul_comm] },
   rw [← integral_sub ((key₄ y₀).interval_integrable _ _) ((key₄ x₀).interval_integrable _ _), 
-      ← integral_smul, real.dist_eq, ← integral_sub (key₅'.interval_integrable _ _)
+      ← interval_integral.integral_smul, real.dist_eq, 
+      ← integral_sub (key₅'.interval_integrable _ _)
         ((@continuous_uncurry_left _ _ _ _ _ _ f' x₀ hf').interval_integrable _ _)],
   conv in (_ • _)
   { dsimp, rw ← div_eq_inv_mul, rw ← (hu _).2 },
@@ -99,17 +98,17 @@ begin
   ... = abs (∫ (t : ℝ) in Ioc a b, abs (f' (u t) t - f' x₀ t)) : 
         by repeat {conv in (interval_integral _ _ _ _) { rw integral_of_le hab.le }}
   ... = (∫ (t : ℝ) in Ioc a b, abs (f' (u t) t - f' x₀ t)) : 
-        by rw abs_eq_self; exact measure_theory.integral_nonneg (λ x, abs_nonneg _)
+        by rw abs_eq_self; exact integral_nonneg (λ x, abs_nonneg _)
   ... ≤ (∫ (t : ℝ) in Ioc a b, (ε/2)/(b-a)) : 
         begin
           have meas_ab : measurable_set (Ioc a b) := measurable_set_Ioc,
-          rw ← measure_theory.integral_indicator meas_ab,
-          rw ← measure_theory.integral_indicator meas_ab,
-          refine measure_theory.integral_mono _ _ (λ t, _),
-          { rw measure_theory.integrable_indicator_iff meas_ab,
+          rw ← integral_indicator meas_ab,
+          rw ← integral_indicator meas_ab,
+          refine integral_mono _ _ (λ t, _),
+          { rw integrable_indicator_iff meas_ab,
             refine ((continuous_abs.comp _).integrable_on_compact compact_Icc).mono_set Ioc_subset_Icc_self,
             refine key₆.sub (@continuous_uncurry_left _ _ _ _ _ _ f' x₀ hf') },
-          { rw measure_theory.integrable_indicator_iff meas_ab,
+          { rw integrable_indicator_iff meas_ab,
             refine (continuous.integrable_on_compact compact_Icc _).mono_set Ioc_subset_Icc_self,
             simp only [continuous_const]},
           by_cases ht : t ∈ Ioc a b,
@@ -123,7 +122,7 @@ begin
           { simp only [ht, indicator_of_not_mem, not_false_iff]},
         end
   ... = (b-a) * (ε/2/(b-a)) :
-        by rw [measure_theory.set_integral_const, real.volume_Ioc,
+        by rw [set_integral_const, real.volume_Ioc,
                ennreal.to_real_of_real (show 0 ≤ b - a, by linarith),
                smul_eq_mul]
   ... = ε/2 : mul_div_cancel' (ε/2) (show b - a ≠ 0, by linarith)
@@ -131,10 +130,11 @@ begin
   all_goals {apply_instance}
 end
 
+lemma continuous_gauss : continuous (λ x, real.exp (-x^2)) := by continuity; exact complex.continuous_exp
+
 lemma has_deriv_at_f (x : ℝ) : has_deriv_at f (real.exp (-x^2)) x := 
-have key : continuous (λ x, real.exp (-x^2)), by continuity; exact complex.continuous_exp,
-integral_has_deriv_at_right (key.interval_integrable _ _) 
-  key.measurable.measurable_at_filter key.continuous_at
+integral_has_deriv_at_right (continuous_gauss.interval_integrable _ _) 
+  continuous_gauss.measurable.measurable_at_filter continuous_gauss.continuous_at
 
 lemma has_deriv_at_f_sq (x : ℝ) : has_deriv_at (f^2) (2 * real.exp (-x^2) * ∫ t in 0..x, real.exp (-t^2)) x := 
 begin
@@ -210,10 +210,6 @@ begin
   ... = -(2 * real.exp (-x ^ 2) * ∫ t in 0..x, real.exp (-t ^ 2)) : by ring
 end
 
-lemma const_h : ∀ x, h x = h 0 :=
-λ x, is_const_of_deriv_eq_zero (λ t, (has_deriv_at_h t).differentiable_at) 
-  (λ t, (has_deriv_at_h t).deriv) x 0
-
 lemma h_zero : h 0 = real.pi / 4 :=
 begin
   change (∫ t in 0..1, real.exp (-(1 + t^2) * 0^2) / (1 + t^2)) + 
@@ -228,10 +224,29 @@ begin
     linarith [pow_two_nonneg t] } 
 end
 
-lemma h_eq : ∀ x, h x = real.pi / 4 := h_zero ▸ const_h
+lemma h_eq : h = (λ x, real.pi / 4) := 
+funext $ λ x, h_zero ▸ (is_const_of_deriv_eq_zero (λ t, (has_deriv_at_h t).differentiable_at) 
+  (λ t, (has_deriv_at_h t).deriv) x 0)
+
+lemma f_sq_tendsto : tendsto (f^2) at_top (𝓝 (real.pi/4)) :=
+begin
+  have : f^2 = h - g,
+  { ext, simp [h] },
+  rw [this, ← sub_zero (real.pi/4), h_eq],
+  refine tendsto_const_nhds.sub _,
+  sorry --need mono
+end
+
+lemma gauss_integral_right : ∫ x in Ici 0, real.exp (-x^2) = (real.pi/4).sqrt :=
+begin
+  sorry
+end
 
 lemma gauss_integral : ∫ x : ℝ, real.exp (-x^2) = real.pi.sqrt :=
 begin
-  sorry
+  rw ← integral_univ,
+  rw ← union_compl_self (Ici 0 : set ℝ),
+  --rw integral_union disjoint_compl_right measurable_set_Ici 
+  --  measurable_set_Ici.compl (continuous_gauss.integrable_on_compact Ici_compact),
 end
 
