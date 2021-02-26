@@ -228,7 +228,7 @@ lemma h_eq : h = (λ x, real.pi / 4) :=
 funext $ λ x, h_zero ▸ (is_const_of_deriv_eq_zero (λ t, (has_deriv_at_h t).differentiable_at) 
   (λ t, (has_deriv_at_h t).deriv) x 0)
 
-lemma f_sq_tendsto : tendsto (f^2) at_top (𝓝 (real.pi/4)) :=
+lemma f_sq_tendsto : tendsto (f^2) at_top (𝓝 $ real.pi/4) :=
 begin
   have : f^2 = h - g,
   { ext, simp [h] },
@@ -237,16 +237,33 @@ begin
   sorry --need mono
 end
 
-lemma gauss_integral_right : ∫ x in Ici 0, real.exp (-x^2) = (real.pi/4).sqrt :=
+#check int.le_nat_abs
+
+lemma f_tendsto : tendsto f at_top (𝓝 $ real.pi.sqrt / 2) :=
 begin
-  sorry
+  rw [← real.sqrt_sqr zero_le_two, ← real.sqrt_div real.pi_pos.le],
+  norm_num,
+  refine f_sq_tendsto.sqrt.congr' _,
+  refine (eventually_ge_at_top 0).mono (λ x hx, real.sqrt_sqr _),
+  dsimp [f],
+  rw integral_of_le hx,
+  refine integral_nonneg (λ t, (real.exp_pos _).le)
+end
+
+lemma gauss_integral_right : ∫ x in Ioi 0, real.exp (-x^2) = real.pi.sqrt / 2 :=
+begin
+  let F := λ (n : ℕ), indicator (Iic n : set ℝ) (λ x, real.exp (-x^2)),
+  have key : ∀ᵐ (x:ℝ), filter.tendsto (λ n, F n x) at_top (𝓝 (real.exp (-x^2))),
+  { refine ae_of_all volume (λ x, tendsto_const_nhds.congr' _),
+    refine eventually_at_top.mpr ⟨nat_ceil x, (λ n hn, _)⟩,
+    refine (indicator_of_mem _ _).symm,
+    change x ≤ n,
+    calc x  ≤ nat_ceil x : le_nat_ceil x
+        ... ≤ n : by exact_mod_cast hn },
 end
 
 lemma gauss_integral : ∫ x : ℝ, real.exp (-x^2) = real.pi.sqrt :=
 begin
-  rw ← integral_univ,
-  rw ← union_compl_self (Ici 0 : set ℝ),
-  --rw integral_union disjoint_compl_right measurable_set_Ici 
-  --  measurable_set_Ici.compl (continuous_gauss.integrable_on_compact Ici_compact),
+  sorry
 end
 
