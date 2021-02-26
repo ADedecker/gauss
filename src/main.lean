@@ -5,6 +5,7 @@ import measure_theory.interval_integral
 import analysis.special_functions.exp_log
 import analysis.special_functions.trigonometric
 import topology.uniform_space.compact_separated
+import integral_limits
 
 noncomputable theory
 
@@ -237,8 +238,6 @@ begin
   sorry --need mono
 end
 
-#check int.le_nat_abs
-
 lemma f_tendsto : tendsto f at_top (𝓝 $ real.pi.sqrt / 2) :=
 begin
   rw [← real.sqrt_sqr zero_le_two, ← real.sqrt_div real.pi_pos.le],
@@ -250,20 +249,26 @@ begin
   refine integral_nonneg (λ t, (real.exp_pos _).le)
 end
 
-lemma gauss_integral_right : ∫ x in Ioi 0, real.exp (-x^2) = real.pi.sqrt / 2 :=
-begin
-  let F := λ (n : ℕ), indicator (Iic n : set ℝ) (λ x, real.exp (-x^2)),
-  have key : ∀ᵐ (x:ℝ), filter.tendsto (λ n, F n x) at_top (𝓝 (real.exp (-x^2))),
-  { refine ae_of_all volume (λ x, tendsto_const_nhds.congr' _),
-    refine eventually_at_top.mpr ⟨nat_ceil x, (λ n hn, _)⟩,
-    refine (indicator_of_mem _ _).symm,
-    change x ≤ n,
-    calc x  ≤ nat_ceil x : le_nat_ceil x
-        ... ≤ n : by exact_mod_cast hn },
-end
+lemma tendsto_gauss_integral_symm_Ioc : 
+  tendsto (λ x, ∫ t in Ioc (-x) x, real.exp (-t^2)) at_top (𝓝 real.pi.sqrt) :=
+sorry
+
+--lemma gauss_integral_right : ∫ x in Ioi 0, real.exp (-x^2) = real.pi.sqrt / 2 :=
+--begin
+--  let F := λ (n : ℕ), indicator (Iic n : set ℝ) (λ x, real.exp (-x^2)),
+--  have key : ∀ᵐ (x:ℝ), filter.tendsto (λ n, F n x) at_top (𝓝 (real.exp (-x^2))),
+--  { refine ae_of_all volume (λ x, tendsto_const_nhds.congr' _),
+--    refine eventually_at_top.mpr ⟨nat_ceil x, (λ n hn, _)⟩,
+--    refine (indicator_of_mem _ _).symm,
+--    change x ≤ n,
+--    calc x  ≤ nat_ceil x : le_nat_ceil x
+--        ... ≤ n : by exact_mod_cast hn },
+--end
 
 lemma gauss_integral : ∫ x : ℝ, real.exp (-x^2) = real.pi.sqrt :=
 begin
-  sorry
+  refine integral_eq_of_tendsto_integral_of_nonneg_ae _ _ _ _ 
+    (ae_of_all _ $ λ x, (real.exp_pos _).le) _ _ 
+    (tendsto_gauss_integral_symm_Ioc.comp tendsto_coe_nat_at_top_at_top),
 end
 

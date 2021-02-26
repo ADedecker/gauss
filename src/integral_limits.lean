@@ -137,6 +137,7 @@ lemma integrable_of_tendsto_integral_of_nonneg_ae {φ : ℕ → set α} (hφ₁ 
 integrable_of_tendsto_integral_norm hφ₁ hφ₂ hφ₃ I hfm hfi 
   (h.congr $ λ n, integral_congr_ae $ ae_restrict_of_ae $ hf.mono $ 
     λ x hx, (real.norm_of_nonneg hx).symm)
+
 --begin
   --conv at h in (integral _ _) 
   --{ rw integral_eq_lintegral_of_nonneg_ae (ae_restrict_of_ae hf) (measurable.ae_measurable hfm) },
@@ -218,5 +219,3 @@ begin
       ennreal.of_real_to_real hn),
 end
 -/
-
-#lint
