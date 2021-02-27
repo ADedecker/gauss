@@ -5,6 +5,7 @@ import measure_theory.interval_integral
 import analysis.special_functions.exp_log
 import analysis.special_functions.trigonometric
 import topology.uniform_space.compact_separated
+import geometry.euclidean.triangle
 import integral_limits
 
 noncomputable theory
@@ -137,7 +138,7 @@ lemma has_deriv_at_f (x : ℝ) : has_deriv_at f (real.exp (-x^2)) x :=
 integral_has_deriv_at_right (continuous_gauss.interval_integrable _ _) 
   continuous_gauss.measurable.measurable_at_filter continuous_gauss.continuous_at
 
-lemma has_deriv_at_f_sq (x : ℝ) : has_deriv_at (f^2) (2 * real.exp (-x^2) * ∫ t in 0..x, real.exp (-t^2)) x := 
+lemma has_deriv_at_f_square (x : ℝ) : has_deriv_at (f^2) (2 * real.exp (-x^2) * ∫ t in 0..x, real.exp (-t^2)) x := 
 begin
   convert has_deriv_at.comp x (has_deriv_at_pow 2 _) (has_deriv_at_f x) using 1,
   norm_cast,
@@ -183,7 +184,7 @@ lemma has_deriv_at_h : ∀ x, has_deriv_at h 0 x :=
 begin
   intros x,
   rw h,
-  convert ← (has_deriv_at_g x).add (has_deriv_at_f_sq x),
+  convert ← (has_deriv_at_g x).add (has_deriv_at_f_square x),
   rw add_eq_zero_iff_eq_neg,
   calc  ∫ (t : ℝ) in 0..1, (-2) * x * real.exp (-(1 + t ^ 2) * x ^ 2)
       = ∫ (t : ℝ) in 0..1, (-2) * x * real.exp (-(t * x) ^ 2 + -x ^ 2) :
@@ -229,29 +230,64 @@ lemma h_eq : h = (λ x, real.pi / 4) :=
 funext $ λ x, h_zero ▸ (is_const_of_deriv_eq_zero (λ t, (has_deriv_at_h t).differentiable_at) 
   (λ t, (has_deriv_at_h t).deriv) x 0)
 
-lemma f_sq_tendsto : tendsto (f^2) at_top (𝓝 $ real.pi/4) :=
+lemma g_le_key (x t : ℝ) (hx : 1 ≤ x) (ht : t ∈ (Icc 0 1 : set ℝ)) :
+  (real.exp (-(1+t^2)*x^2))/(1+t^2) ≤ real.exp (-x) :=
+have key₁ : 1 ≤ 1 + t^2,
+  from (le_add_iff_nonneg_right 1).mpr (pow_two_nonneg t),
+calc (real.exp (-(1+t^2)*x^2))/(1+t^2) 
+      ≤ (real.exp (-(1+t^2)*x^2))/1 : div_le_div_of_le_left 
+          (real.exp_pos _).le zero_lt_one key₁
+  ... = real.exp (-(1+t^2)*x^2) : div_one _
+  ... = real.exp ((1+t^2)*(-x^2)) : congr_arg real.exp (by ring)
+  ... ≤ real.exp (1*(-x^2)) : real.exp_monotone 
+          (mul_mono_nonpos (neg_nonpos.mpr $ pow_two_nonneg x) key₁)
+  ... = real.exp (-x^2) : by rw one_mul
+  ... = real.exp (x*(-x)) : by ring
+  ... ≤ real.exp (1*(-x)) : real.exp_monotone
+          (mul_mono_nonpos (neg_nonpos.mpr $ zero_le_one.trans hx) hx)
+  ... = real.exp (-x) : by rw one_mul
+
+lemma g_tendsto : tendsto g at_top (𝓝 0) := sorry --need mono
+
+lemma f_square_tendsto : tendsto (f^2) at_top (𝓝 $ real.pi/4) :=
 begin
   have : f^2 = h - g,
   { ext, simp [h] },
   rw [this, ← sub_zero (real.pi/4), h_eq],
-  refine tendsto_const_nhds.sub _,
-  sorry --need mono
+  exact tendsto_const_nhds.sub g_tendsto
 end
 
 lemma f_tendsto : tendsto f at_top (𝓝 $ real.pi.sqrt / 2) :=
 begin
   rw [← real.sqrt_sqr zero_le_two, ← real.sqrt_div real.pi_pos.le],
   norm_num,
-  refine f_sq_tendsto.sqrt.congr' _,
+  refine f_square_tendsto.sqrt.congr' _,
   refine (eventually_ge_at_top 0).mono (λ x hx, real.sqrt_sqr _),
   dsimp [f],
   rw integral_of_le hx,
-  refine integral_nonneg (λ t, (real.exp_pos _).le)
+  refine integral_nonneg (λ t, (real.exp_pos _).le),
+end
+
+lemma tendsto_gauss_integral_symm_interval : 
+  tendsto (λ x, ∫ t in (-x)..x, real.exp (-t^2)) at_top (𝓝 real.pi.sqrt) :=
+begin
+  convert ← tendsto.const_mul 2 f_tendsto,
+  { ext x,
+    rw [two_mul, ← integral_add_adjacent_intervals 
+      (continuous_gauss.interval_integrable (-x) 0) 
+      (continuous_gauss.interval_integrable 0 x)],
+    refine congr_arg2 (+) _ rfl,
+    conv in (real.exp _) {rw ← neg_square, change (λ t, real.exp (-t^2)) (-t)},
+    rw [integral_comp_neg 0 x (λ t, real.exp (-t^2)) 
+          continuous_gauss.measurable.ae_measurable, neg_zero],
+    all_goals {apply_instance} },
+  { linarith }
 end
 
 lemma tendsto_gauss_integral_symm_Ioc : 
   tendsto (λ x, ∫ t in Ioc (-x) x, real.exp (-t^2)) at_top (𝓝 real.pi.sqrt) :=
-sorry
+tendsto_gauss_integral_symm_interval.congr' 
+  ((eventually_ge_at_top 0).mono $ λ x hx, integral_of_le (neg_le_self hx))
 
 --lemma gauss_integral_right : ∫ x in Ioi 0, real.exp (-x^2) = real.pi.sqrt / 2 :=
 --begin
@@ -270,5 +306,21 @@ begin
   refine integral_eq_of_tendsto_integral_of_nonneg_ae _ _ _ _ 
     (ae_of_all _ $ λ x, (real.exp_pos _).le) _ _ 
     (tendsto_gauss_integral_symm_Ioc.comp tendsto_coe_nat_at_top_at_top),
+  { intro x,
+    refine (tendsto_coe_nat_at_top_at_top.eventually (eventually_gt_at_top $ abs x)).mono 
+      (λ n hn, ⟨_, _⟩);
+    rw abs_lt at hn;
+    linarith },
+  { intros i j hij,
+    refine Ioc_subset_Ioc _ _;
+    [rw neg_le_neg_iff, skip];
+    norm_cast;
+    linarith },
+  { intro n, 
+    exact measurable_set_Ioc },
+  { exact continuous_gauss.measurable },
+  { intro n, 
+    exact (continuous_gauss.integrable_on_compact compact_Icc).mono_set Ioc_subset_Icc_self }
 end
 
+--local notation `pythagoras` := inner_product_geometry.norm_add_square_eq_norm_square_add_norm_square_iff_angle_eq_pi_div_two
