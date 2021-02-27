@@ -19,6 +19,12 @@ def g : ℝ → ℝ := λ x, ∫ t in 0..1, (real.exp (-(1+t^2)*x^2))/(1+t^2)
 
 def h : ℝ → ℝ := λ x, g x + (f^2) x
 
+lemma interval_integral_mono {μ : measure ℝ} {f g : ℝ → ℝ} {a b : ℝ}
+  (hf : interval_integrable f μ a b) (hg : interval_integrable g μ a b) 
+  (hab : a ≤ b) (h : f ≤ g) :
+  ∫ u in a..b, f u ∂μ ≤ ∫ u in a..b, g u ∂μ :=
+sorry --proven in PR #6292
+
 lemma is_const_of_deriv_eq_zero {F : Type*} 
   [normed_group F] [normed_space ℝ F] {f : ℝ → F} (hf : differentiable ℝ f) 
   (hz : ∀ x, deriv f x = 0) : ∀ x y, f x = f y :=
@@ -230,8 +236,9 @@ lemma h_eq : h = (λ x, real.pi / 4) :=
 funext $ λ x, h_zero ▸ (is_const_of_deriv_eq_zero (λ t, (has_deriv_at_h t).differentiable_at) 
   (λ t, (has_deriv_at_h t).deriv) x 0)
 
-lemma g_le_key (x t : ℝ) (hx : 1 ≤ x) (ht : t ∈ (Icc 0 1 : set ℝ)) :
-  (real.exp (-(1+t^2)*x^2))/(1+t^2) ≤ real.exp (-x) :=
+lemma g_le_key (x : ℝ) (hx : 1 ≤ x) :
+  (λ t, (real.exp (-(1+t^2)*x^2))/(1+t^2)) ≤ (λ t, real.exp (-x)) :=
+assume t,
 have key₁ : 1 ≤ 1 + t^2,
   from (le_add_iff_nonneg_right 1).mpr (pow_two_nonneg t),
 calc (real.exp (-(1+t^2)*x^2))/(1+t^2) 
@@ -247,7 +254,32 @@ calc (real.exp (-(1+t^2)*x^2))/(1+t^2)
           (mul_mono_nonpos (neg_nonpos.mpr $ zero_le_one.trans hx) hx)
   ... = real.exp (-x) : by rw one_mul
 
-lemma g_tendsto : tendsto g at_top (𝓝 0) := sorry --need mono
+lemma g_le : g ≤ᶠ[at_top] (λ x, real.exp (-x)) :=
+begin
+  dsimp [g],
+  refine ((eventually_ge_at_top 1).mono $ λ x hx, _),
+  convert interval_integral_mono _ _ zero_le_one (g_le_key x hx),
+  { rw interval_integral.integral_const,
+    simp },
+  { refine (continuous.div _ _ _).interval_integrable 0 1,
+    { continuity, exact complex.continuous_exp },
+    { continuity },
+    { intro x, linarith [pow_two_nonneg x] } },
+  { exact continuous.interval_integrable (by continuity) 0 1 },
+end
+
+lemma g_tendsto : tendsto g at_top (𝓝 0) := 
+begin
+  refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds 
+    (real.tendsto_exp_at_bot.comp tendsto_neg_at_top_at_bot) 
+    (eventually_of_forall $ λ x, _) g_le,
+  dsimp [g],
+  rw integral_of_le,
+  { refine integral_nonneg (λ t, _),
+    exact div_nonneg (real.exp_pos _).le 
+      (zero_le_one.trans $ (le_add_iff_nonneg_right 1).mpr (pow_two_nonneg t)) },
+  { exact zero_le_one }
+end
 
 lemma f_square_tendsto : tendsto (f^2) at_top (𝓝 $ real.pi/4) :=
 begin
@@ -322,5 +354,3 @@ begin
   { intro n, 
     exact (continuous_gauss.integrable_on_compact compact_Icc).mono_set Ioc_subset_Icc_self }
 end
-
---local notation `pythagoras` := inner_product_geometry.norm_add_square_eq_norm_square_add_norm_square_iff_angle_eq_pi_div_two
