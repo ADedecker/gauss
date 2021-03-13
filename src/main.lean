@@ -321,18 +321,6 @@ lemma tendsto_gauss_integral_symm_Ioc :
 tendsto_gauss_integral_symm_interval.congr' 
   ((eventually_ge_at_top 0).mono $ λ x hx, integral_of_le (neg_le_self hx))
 
---lemma gauss_integral_right : ∫ x in Ioi 0, real.exp (-x^2) = real.pi.sqrt / 2 :=
---begin
---  let F := λ (n : ℕ), indicator (Iic n : set ℝ) (λ x, real.exp (-x^2)),
---  have key : ∀ᵐ (x:ℝ), filter.tendsto (λ n, F n x) at_top (𝓝 (real.exp (-x^2))),
---  { refine ae_of_all volume (λ x, tendsto_const_nhds.congr' _),
---    refine eventually_at_top.mpr ⟨nat_ceil x, (λ n hn, _)⟩,
---    refine (indicator_of_mem _ _).symm,
---    change x ≤ n,
---    calc x  ≤ nat_ceil x : le_nat_ceil x
---        ... ≤ n : by exact_mod_cast hn },
---end
-
 lemma gauss_integral : ∫ x : ℝ, real.exp (-x^2) = real.pi.sqrt :=
 begin
   refine integral_eq_of_tendsto_integral_of_nonneg_ae _ _ _ _ 
