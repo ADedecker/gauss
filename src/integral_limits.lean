@@ -8,10 +8,6 @@ open_locale ennreal nnreal topological_space
 
 variables {α : Type*} [measurable_space α] {μ : measure α}
 
-lemma ae_restrict_of_ae {s : set α} {p : α → Prop} :
-  (∀ᵐ x ∂μ, p x) → (∀ᵐ x ∂(μ.restrict s), p x) :=
-eventually.filter_mono (ae_mono measure.restrict_le_self)
-
 lemma lintegral_eq_supr {φ : ℕ → set α} (hφ₁ : ∀ x, ∀ᶠ n in at_top, x ∈ φ n) 
   (hφ₂ : monotone φ) (hφ₃ : ∀ n, measurable_set $ φ n) {f : α → ℝ≥0∞}
   (hfm : measurable f) :

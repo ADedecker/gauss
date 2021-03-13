@@ -19,12 +19,6 @@ def g : ℝ → ℝ := λ x, ∫ t in 0..1, (real.exp (-(1+t^2)*x^2))/(1+t^2)
 
 def h : ℝ → ℝ := λ x, g x + (f^2) x
 
-lemma interval_integral_mono {μ : measure ℝ} {f g : ℝ → ℝ} {a b : ℝ}
-  (hf : interval_integrable f μ a b) (hg : interval_integrable g μ a b) 
-  (hab : a ≤ b) (h : f ≤ g) :
-  ∫ u in a..b, f u ∂μ ≤ ∫ u in a..b, g u ∂μ :=
-sorry --proven in PR #6292
-
 lemma is_const_of_deriv_eq_zero {F : Type*} 
   [normed_group F] [normed_space ℝ F] {f : ℝ → F} (hf : differentiable ℝ f) 
   (hz : ∀ x, deriv f x = 0) : ∀ x y, f x = f y :=
@@ -258,7 +252,7 @@ lemma g_le : g ≤ᶠ[at_top] (λ x, real.exp (-x)) :=
 begin
   dsimp [g],
   refine ((eventually_ge_at_top 1).mono $ λ x hx, _),
-  convert interval_integral_mono _ _ zero_le_one (g_le_key x hx),
+  convert integral_mono _ _ zero_le_one (g_le_key x hx),
   { rw interval_integral.integral_const,
     simp },
   { refine (continuous.div _ _ _).interval_integrable 0 1,
