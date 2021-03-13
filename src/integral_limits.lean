@@ -8,31 +8,27 @@ open_locale ennreal nnreal topological_space
 
 variables {α : Type*} [measurable_space α] {μ : measure α}
 
-lemma lintegral_eq_supr {φ : ℕ → set α} (hφ₁ : ∀ x, ∀ᶠ n in at_top, x ∈ φ n) 
+lemma lintegral_eq_supr {φ : ℕ → set α} (hφ₁ : ∀ᵐ x ∂μ, ∀ᶠ n in at_top, x ∈ φ n) 
   (hφ₂ : monotone φ) (hφ₃ : ∀ n, measurable_set $ φ n) {f : α → ℝ≥0∞}
   (hfm : measurable f) :
   ∫⁻ x, f x ∂μ = ⨆ (n : ℕ), ∫⁻ x in φ n, f x ∂μ :=
 begin
-  let F := λ (n : ℕ), indicator (φ n) f, 
-  have key₁ : ∀ x, tendsto (λ n, F n x) at_top (𝓝 $ f x) :=
-    λ x, tendsto_const_nhds.congr' ((hφ₁ x).mono $ 
-      λ n hn, (indicator_of_mem hn _).symm),
-  have key₂ : ∀ x, monotone (λ n, F n x) :=
+  let F := λ n, indicator (φ n) f, 
+  have F_tendsto : ∀ᵐ x ∂μ, tendsto (λ n, F n x) at_top (𝓝 $ f x) :=
+    hφ₁.mono (λ x hx, tendsto_const_nhds.congr' $
+      hx.mono $ λ n hn, (indicator_of_mem hn _).symm),
+  have F_mono : ∀ x, monotone (λ n, F n x) :=
     λ x i j hij, indicator_le_indicator_of_subset (hφ₂ hij) (λ _, zero_le _) x,
-  have key₃ : monotone F := λ i j hij x, key₂ x hij,
-  have key₄ : ∀ x, f x = ⨆ (n : ℕ), F n x :=
-    λ x, tendsto_nhds_unique (key₁ x) (tendsto_at_top_csupr (key₂ x) ⟨⊤, λ _ _, le_top⟩),
-  have key₅ : monotone (λ (n : ℕ), ∫⁻ (x : α), F n x ∂μ),
-  { intros i j hij,
-    dsimp [F], 
-    exact lintegral_mono (λ x, key₂ x hij) },
-  have key₆ : ∀ n, ∫⁻ (x : α), F n x ∂μ = ∫⁻ x in φ n, f x ∂μ,
+  have f_eq_supr_F : ∀ᵐ x ∂μ, f x = ⨆ (n : ℕ), F n x :=
+    F_tendsto.mono (λ x hx, tendsto_nhds_unique hx 
+      (tendsto_at_top_csupr (F_mono x) ⟨⊤, λ _ _, le_top⟩)),
+  have lintegral_F_eq : ∀ n, ∫⁻ (x : α), F n x ∂μ = ∫⁻ x in φ n, f x ∂μ,
   { intro n,
     dsimp [F],
     rw lintegral_indicator _ (hφ₃ n) },
-  conv_lhs {congr, skip, funext, rw key₄},
-  conv_rhs {congr, funext, rw ← key₆},
-  exact lintegral_supr (λ n, hfm.indicator $ hφ₃ n) key₃
+  rw lintegral_congr_ae f_eq_supr_F,
+  conv_rhs {congr, funext, rw ← lintegral_F_eq},
+  exact lintegral_supr (λ n, hfm.indicator $ hφ₃ n) (λ i j hij x, F_mono x hij)
 end
 
 lemma tendsto_set_lintegral_of_monotone_set {φ : ℕ → set α} (hφ : monotone φ) {f : α → ℝ≥0∞} :
@@ -41,7 +37,7 @@ tendsto_at_top_csupr
   (λ i j hij, lintegral_mono' (measure.restrict_mono (hφ hij) (le_refl _)) (le_refl _)) 
   ⟨⊤, λ _ _, le_top⟩
 
-lemma lintegral_eq_of_tendsto_lintegral {φ : ℕ → set α} (hφ₁ : ∀ x, ∀ᶠ n in at_top, x ∈ φ n) 
+lemma lintegral_eq_of_tendsto_lintegral {φ : ℕ → set α} (hφ₁ : ∀ᵐ x ∂μ, ∀ᶠ n in at_top, x ∈ φ n) 
   (hφ₂ : monotone φ) (hφ₃ : ∀ n, measurable_set $ φ n) {f : α → ℝ≥0∞} (I : ℝ≥0∞) 
   (hfm : measurable f) (h : tendsto (λ n, ∫⁻ x in φ n, f x ∂μ) at_top (𝓝 I)) :
   ∫⁻ x, f x ∂μ = I :=
@@ -54,8 +50,9 @@ lemma eventually_ne_of_tendsto_nhds {β : Type*} [topological_space β] [t1_spac
   (hbb' : b ≠ b') {l : filter α} (hf : tendsto f l (𝓝 b)) : ∀ᶠ x in l, f x ≠ b' :=
 hf (compl_singleton_mem_nhds hbb')
 
-lemma integrable_of_tendsto_lintegral_nnnorm {φ : ℕ → set α} (hφ₁ : ∀ x, ∀ᶠ n in at_top, x ∈ φ n) 
-  (hφ₂ : monotone φ) (hφ₃ : ∀ n, measurable_set $ φ n) {f : α → ℝ} (I : ℝ) (hfm : measurable f) 
+lemma integrable_of_tendsto_lintegral_nnnorm {φ : ℕ → set α} 
+  (hφ₁ : ∀ᵐ x ∂μ, ∀ᶠ n in at_top, x ∈ φ n) (hφ₂ : monotone φ) (hφ₃ : ∀ n, measurable_set $ φ n) 
+  {f : α → ℝ} (I : ℝ) (hfm : measurable f) 
   (h : tendsto (λ n, ∫⁻ x in φ n, nnnorm (f x) ∂μ) at_top (𝓝 $ ennreal.of_real I)) :
   integrable f μ :=
 begin
@@ -66,8 +63,9 @@ begin
   exact ennreal.of_real_lt_top
 end
 
-lemma integrable_of_tendsto_lintegral_nnnorm' {φ : ℕ → set α} (hφ₁ : ∀ x, ∀ᶠ n in at_top, x ∈ φ n) 
-  (hφ₂ : monotone φ) (hφ₃ : ∀ n, measurable_set $ φ n) {f : α → ℝ} (I : ℝ≥0) (hfm : measurable f) 
+lemma integrable_of_tendsto_lintegral_nnnorm' {φ : ℕ → set α} 
+  (hφ₁ : ∀ᵐ x ∂μ, ∀ᶠ n in at_top, x ∈ φ n) (hφ₂ : monotone φ) (hφ₃ : ∀ n, measurable_set $ φ n) 
+  {f : α → ℝ} (I : ℝ≥0) (hfm : measurable f) 
   (h : tendsto (λ n, ∫⁻ x in φ n, nnnorm (f x) ∂μ) at_top (𝓝 I)) :
   integrable f μ :=
 begin
@@ -76,7 +74,7 @@ begin
   exact ennreal.of_real_coe_nnreal
 end
 
-lemma integrable_of_tendsto_integral_norm {φ : ℕ → set α} (hφ₁ : ∀ x, ∀ᶠ n in at_top, x ∈ φ n) 
+lemma integrable_of_tendsto_integral_norm {φ : ℕ → set α} (hφ₁ : ∀ᵐ x ∂μ, ∀ᶠ n in at_top, x ∈ φ n) 
   (hφ₂ : monotone φ) (hφ₃ : ∀ n, measurable_set $ φ n) {f : α → ℝ} (I : ℝ) (hfm : measurable f) 
   (hfi : ∀ n, integrable_on f (φ n) μ) 
   (h : tendsto (λ n, ∫ x in φ n, ∥f x∥ ∂μ) at_top (𝓝 I)) :
@@ -94,15 +92,15 @@ begin
   exact integrable_of_tendsto_lintegral_nnnorm hφ₁ hφ₂ hφ₃ I hfm h'
 end
 
-lemma integrable_of_tendsto_integral_of_nonneg_ae {φ : ℕ → set α} (hφ₁ : ∀ x, ∀ᶠ n in at_top, x ∈ φ n) 
-  (hφ₂ : monotone φ) (hφ₃ : ∀ n, measurable_set $ φ n) {f : α → ℝ} (I : ℝ) (hf : 0 ≤ᵐ[μ] f)
-  (hfm : measurable f) (hfi : ∀ n, integrable_on f (φ n) μ) 
+lemma integrable_of_tendsto_integral_of_nonneg_ae {φ : ℕ → set α} 
+  (hφ₁ : ∀ᵐ x ∂μ, ∀ᶠ n in at_top, x ∈ φ n) (hφ₂ : monotone φ) (hφ₃ : ∀ n, measurable_set $ φ n) 
+  {f : α → ℝ} (I : ℝ) (hf : 0 ≤ᵐ[μ] f) (hfm : measurable f) (hfi : ∀ n, integrable_on f (φ n) μ) 
   (h : tendsto (λ n, ∫ x in φ n, f x ∂μ) at_top (𝓝 I)) : integrable f μ :=
 integrable_of_tendsto_integral_norm hφ₁ hφ₂ hφ₃ I hfm hfi 
   (h.congr $ λ n, integral_congr_ae $ ae_restrict_of_ae $ hf.mono $ 
     λ x hx, (real.norm_of_nonneg hx).symm)
 
-lemma integral_eq_supr_max_sub_supr_min {φ : ℕ → set α} (hφ₁ : ∀ x, ∀ᶠ n in at_top, x ∈ φ n) 
+lemma integral_eq_supr_max_sub_supr_min {φ : ℕ → set α} (hφ₁ : ∀ᵐ x ∂μ, ∀ᶠ n in at_top, x ∈ φ n) 
   (hφ₂ : monotone φ) (hφ₃ : ∀ n, measurable_set $ φ n) {f : α → ℝ}
   (hfm : measurable f) (hfi : integrable f μ) :
   ∫ x, f x ∂μ = (⨆ (n : ℕ), ∫⁻ x in φ n, ennreal.of_real (max (f x) 0) ∂μ).to_real - 
@@ -114,7 +112,7 @@ begin
   { exact ennreal.measurable_of_real.comp (hfm.max measurable_zero) }
 end
 
-lemma integral_eq_of_tendsto_integral {φ : ℕ → set α} (hφ₁ : ∀ x, ∀ᶠ n in at_top, x ∈ φ n) 
+lemma integral_eq_of_tendsto_integral {φ : ℕ → set α} (hφ₁ : ∀ᵐ x ∂μ, ∀ᶠ n in at_top, x ∈ φ n) 
   (hφ₂ : monotone φ) (hφ₃ : ∀ n, measurable_set $ φ n) {f : α → ℝ} (I : ℝ)
   (hfm : measurable f) (hfi : integrable f μ) 
   (h : tendsto (λ n, ∫ x in φ n, f x ∂μ) at_top (𝓝 I)) :
@@ -140,9 +138,9 @@ begin
   norm_cast
 end
 
-lemma integral_eq_of_tendsto_integral_of_nonneg_ae {φ : ℕ → set α} (hφ₁ : ∀ x, ∀ᶠ n in at_top, x ∈ φ n) 
-  (hφ₂ : monotone φ) (hφ₃ : ∀ n, measurable_set $ φ n) {f : α → ℝ} (I : ℝ)
-  (hf : 0 ≤ᵐ[μ] f) (hfm : measurable f) (hfi : ∀ n, integrable_on f (φ n) μ) 
+lemma integral_eq_of_tendsto_integral_of_nonneg_ae {φ : ℕ → set α} 
+  (hφ₁ : ∀ᵐ x ∂μ, ∀ᶠ n in at_top, x ∈ φ n) (hφ₂ : monotone φ) (hφ₃ : ∀ n, measurable_set $ φ n) 
+  {f : α → ℝ} (I : ℝ) (hf : 0 ≤ᵐ[μ] f) (hfm : measurable f) (hfi : ∀ n, integrable_on f (φ n) μ) 
   (h : tendsto (λ n, ∫ x in φ n, f x ∂μ) at_top (𝓝 I)) :
   ∫ x, f x ∂μ = I :=
 have hfi' : integrable f μ,

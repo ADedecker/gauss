@@ -320,7 +320,8 @@ begin
   refine integral_eq_of_tendsto_integral_of_nonneg_ae _ _ _ _ 
     (ae_of_all _ $ λ x, (real.exp_pos _).le) _ _ 
     (tendsto_gauss_integral_symm_Ioc.comp tendsto_coe_nat_at_top_at_top),
-  { intro x,
+  { apply ae_of_all,
+    intro x,
     refine (tendsto_coe_nat_at_top_at_top.eventually (eventually_gt_at_top $ abs x)).mono 
       (λ n hn, ⟨_, _⟩);
     rw abs_lt at hn;
