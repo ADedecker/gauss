@@ -66,6 +66,12 @@ lemma growing_family_Ico [no_top_order α] : growing_family μ (λ n, Ico (a n) 
 
 end Ixx
 
+lemma growing_family.ae_tendsto_indicator {β : Type*} [has_zero β] [topological_space β] 
+  {f : α → β} {φ : ℕ → set α} (hφ : growing_family μ φ) : 
+∀ᵐ x ∂μ, tendsto (λ n, (φ n).indicator f x) at_top (𝓝 $ f x) :=
+  hφ.ae_eventually_mem.mono (λ x hx, tendsto_const_nhds.congr' $
+      hx.mono $ λ n hn, (indicator_of_mem hn _).symm)
+
 end growing_family
 
 section integral_limits
@@ -78,8 +84,7 @@ lemma lintegral_eq_supr {φ : ℕ → set α} (hφ : growing_family μ φ) {f : 
 begin
   let F := λ n, indicator (φ n) f, 
   have F_tendsto : ∀ᵐ x ∂μ, tendsto (λ n, F n x) at_top (𝓝 $ f x) :=
-    hφ.ae_eventually_mem.mono (λ x hx, tendsto_const_nhds.congr' $
-      hx.mono $ λ n hn, (indicator_of_mem hn _).symm),
+    hφ.ae_tendsto_indicator,
   have F_mono : ∀ x, monotone (λ n, F n x) :=
     λ x i j hij, indicator_le_indicator_of_subset (hφ.mono hij) (λ _, zero_le _) x,
   have f_eq_supr_F : ∀ᵐ x ∂μ, f x = ⨆ (n : ℕ), F n x :=
@@ -172,29 +177,44 @@ begin
   { exact ennreal.measurable_of_real.comp (hfm.max measurable_zero) }
 end
 
-lemma integral_eq_of_tendsto_integral {φ : ℕ → set α} (hφ : growing_family μ φ) {f : α → ℝ} (I : ℝ)
+--lemma integral_eq_of_tendsto_integral {φ : ℕ → set α} (hφ : growing_family μ φ) {f : α → ℝ} (I : ℝ)
+--  (hfm : measurable f) (hfi : integrable f μ) 
+--  (h : tendsto (λ n, ∫ x in φ n, f x ∂μ) at_top (𝓝 I)) :
+--  ∫ x, f x ∂μ = I :=
+--begin
+--  have hfm₁ : measurable (λ x, ennreal.of_real $ max (f x) 0) :=
+--    ennreal.measurable_of_real.comp (hfm.max measurable_zero), --factor out ? (cf before)
+--  have hfm₂ : measurable (λ x, ennreal.of_real $ -min (f x) 0) := 
+--    ennreal.measurable_of_real.comp (measurable_neg.comp $ hfm.min measurable_zero),
+--  convert integral_eq_supr_max_sub_supr_min hφ hfm hfi,
+--  refine tendsto_nhds_unique h _,
+--  conv in (integral _ _) 
+--  { rw integral_eq_lintegral_max_sub_lintegral_min hfi.integrable_on },
+--  refine tendsto.sub _ _;
+--  refine (ennreal.tendsto_to_real _).comp (tendsto_set_lintegral_of_monotone_set hφ.mono);
+--  rw ← lintegral_eq_supr hφ _;
+--  [convert ne_top_of_lt hfi.max_zero.2, assumption,
+--   convert ne_top_of_lt hfi.min_zero.neg.2, assumption];
+--  ext x : 1;
+--  [rw real.nnnorm_of_nonneg (le_max_right _ _), 
+--   rw [pi.neg_apply, real.nnnorm_of_nonneg (neg_nonneg.mpr $ min_le_right _ _)]];
+--  rw ennreal.coe_nnreal_eq;
+--  norm_cast
+--end
+
+lemma integral_eq_of_tendsto_integral {φ : ℕ → set α} (hφ : growing_family μ φ) {f : α → E} (I : E)
   (hfm : measurable f) (hfi : integrable f μ) 
   (h : tendsto (λ n, ∫ x in φ n, f x ∂μ) at_top (𝓝 I)) :
   ∫ x, f x ∂μ = I :=
 begin
-  have hfm₁ : measurable (λ x, ennreal.of_real $ max (f x) 0) :=
-    ennreal.measurable_of_real.comp (hfm.max measurable_zero), --factor out ? (cf before)
-  have hfm₂ : measurable (λ x, ennreal.of_real $ -min (f x) 0) := 
-    ennreal.measurable_of_real.comp (measurable_neg.comp $ hfm.min measurable_zero),
-  convert integral_eq_supr_max_sub_supr_min hφ hfm hfi,
-  refine tendsto_nhds_unique h _,
-  conv in (integral _ _) 
-  { rw integral_eq_lintegral_max_sub_lintegral_min hfi.integrable_on },
-  refine tendsto.sub _ _;
-  refine (ennreal.tendsto_to_real _).comp (tendsto_set_lintegral_of_monotone_set hφ.mono);
-  rw ← lintegral_eq_supr hφ _;
-  [convert ne_top_of_lt hfi.max_zero.2, assumption,
-   convert ne_top_of_lt hfi.min_zero.neg.2, assumption];
-  ext x : 1;
-  [rw real.nnnorm_of_nonneg (le_max_right _ _), 
-   rw [pi.neg_apply, real.nnnorm_of_nonneg (neg_nonneg.mpr $ min_le_right _ _)]];
-  rw ennreal.coe_nnreal_eq;
-  norm_cast
+  refine tendsto_nhds_unique _ h,
+  suffices : tendsto (λ (n : ℕ), ∫ (x : α), (φ n).indicator f x ∂μ) at_top (𝓝 (∫ (x : α), f x ∂μ)),
+  { convert this,
+    ext n,
+    rw integral_indicator (hφ.measurable n) },
+  exact tendsto_integral_of_dominated_convergence (λ x, ∥f x∥) 
+    (λ n, (hfm.indicator $ hφ.measurable n).ae_measurable) hfm.ae_measurable hfi.norm 
+    (λ n, ae_of_all _ $ norm_indicator_le_norm_self f) hφ.ae_tendsto_indicator
 end
 
 lemma integral_eq_of_tendsto_integral_of_nonneg_ae {φ : ℕ → set α} 
