@@ -177,31 +177,6 @@ begin
   { exact ennreal.measurable_of_real.comp (hfm.max measurable_zero) }
 end
 
---lemma integral_eq_of_tendsto_integral {φ : ℕ → set α} (hφ : growing_family μ φ) {f : α → ℝ} (I : ℝ)
---  (hfm : measurable f) (hfi : integrable f μ) 
---  (h : tendsto (λ n, ∫ x in φ n, f x ∂μ) at_top (𝓝 I)) :
---  ∫ x, f x ∂μ = I :=
---begin
---  have hfm₁ : measurable (λ x, ennreal.of_real $ max (f x) 0) :=
---    ennreal.measurable_of_real.comp (hfm.max measurable_zero), --factor out ? (cf before)
---  have hfm₂ : measurable (λ x, ennreal.of_real $ -min (f x) 0) := 
---    ennreal.measurable_of_real.comp (measurable_neg.comp $ hfm.min measurable_zero),
---  convert integral_eq_supr_max_sub_supr_min hφ hfm hfi,
---  refine tendsto_nhds_unique h _,
---  conv in (integral _ _) 
---  { rw integral_eq_lintegral_max_sub_lintegral_min hfi.integrable_on },
---  refine tendsto.sub _ _;
---  refine (ennreal.tendsto_to_real _).comp (tendsto_set_lintegral_of_monotone_set hφ.mono);
---  rw ← lintegral_eq_supr hφ _;
---  [convert ne_top_of_lt hfi.max_zero.2, assumption,
---   convert ne_top_of_lt hfi.min_zero.neg.2, assumption];
---  ext x : 1;
---  [rw real.nnnorm_of_nonneg (le_max_right _ _), 
---   rw [pi.neg_apply, real.nnnorm_of_nonneg (neg_nonneg.mpr $ min_le_right _ _)]];
---  rw ennreal.coe_nnreal_eq;
---  norm_cast
---end
-
 lemma integral_eq_of_tendsto_integral {φ : ℕ → set α} (hφ : growing_family μ φ) {f : α → E} (I : E)
   (hfm : measurable f) (hfi : integrable f μ) 
   (h : tendsto (λ n, ∫ x in φ n, f x ∂μ) at_top (𝓝 I)) :
