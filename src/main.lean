@@ -304,8 +304,7 @@ begin
       (continuous_gauss.interval_integrable 0 x)],
     refine congr_arg2 (+) _ rfl,
     conv in (real.exp _) {rw ← neg_square, change (λ t, real.exp (-t^2)) (-t)},
-    rw [integral_comp_neg 0 x (λ t, real.exp (-t^2)) 
-          continuous_gauss.measurable.ae_measurable, neg_zero],
+    rw [integral_comp_neg (λ t, real.exp (-t^2)), neg_zero],
     all_goals {apply_instance} },
   { linarith }
 end
@@ -317,22 +316,12 @@ tendsto_gauss_integral_symm_interval.congr'
 
 lemma gauss_integral : ∫ x : ℝ, real.exp (-x^2) = real.pi.sqrt :=
 begin
-  refine integral_eq_of_tendsto_integral_of_nonneg_ae _ _ _ _ 
+  refine integral_eq_of_tendsto_integral_of_nonneg_ae _ _
     (ae_of_all _ $ λ x, (real.exp_pos _).le) _ _ 
     (tendsto_gauss_integral_symm_Ioc.comp tendsto_coe_nat_at_top_at_top),
-  { apply ae_of_all,
-    intro x,
-    refine (tendsto_coe_nat_at_top_at_top.eventually (eventually_gt_at_top $ abs x)).mono 
-      (λ n hn, ⟨_, _⟩);
-    rw abs_lt at hn;
-    linarith },
-  { intros i j hij,
-    refine Ioc_subset_Ioc _ _;
-    [rw neg_le_neg_iff, skip];
-    norm_cast;
-    linarith },
-  { intro n, 
-    exact measurable_set_Ioc },
+  { refine growing_family_Ioc (λ i j hij, neg_le_neg (by exact_mod_cast hij)) 
+    (tendsto_neg_at_top_at_bot.comp _) (λ i j hij, by exact_mod_cast hij) _;
+    exact tendsto_coe_nat_at_top_at_top },
   { exact continuous_gauss.measurable },
   { intro n, 
     exact (continuous_gauss.integrable_on_compact compact_Icc).mono_set Ioc_subset_Icc_self }

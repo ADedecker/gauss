@@ -68,9 +68,20 @@ end Ixx
 
 lemma growing_family.ae_tendsto_indicator {β : Type*} [has_zero β] [topological_space β] 
   {f : α → β} {φ : ℕ → set α} (hφ : growing_family μ φ) : 
-∀ᵐ x ∂μ, tendsto (λ n, (φ n).indicator f x) at_top (𝓝 $ f x) :=
-  hφ.ae_eventually_mem.mono (λ x hx, tendsto_const_nhds.congr' $
-      hx.mono $ λ n hn, (indicator_of_mem hn _).symm)
+  ∀ᵐ x ∂μ, tendsto (λ n, (φ n).indicator f x) at_top (𝓝 $ f x) :=
+hφ.ae_eventually_mem.mono (λ x hx, tendsto_const_nhds.congr' $
+  hx.mono $ λ n hn, (indicator_of_mem hn _).symm)
+
+lemma growing_family.inter_restrict {φ : ℕ → set α} (hφ : growing_family μ φ) 
+  {s : set α} (hs : measurable_set s) :
+  growing_family (μ.restrict s) (λ n, φ n ∩ s) :=
+{ ae_eventually_mem := 
+  begin
+    rw ae_restrict_iff' hs,
+    refine hφ.ae_eventually_mem.mono (λ x hx hxs, hx.mono $ λ n hn, ⟨hn, hxs⟩),
+  end,
+  mono := λ i j hij, inter_subset_inter_left s (hφ.mono hij),
+  measurable := λ n, (hφ.measurable n).inter hs }
 
 end growing_family
 
@@ -90,10 +101,8 @@ begin
   have f_eq_supr_F : ∀ᵐ x ∂μ, f x = ⨆ (n : ℕ), F n x :=
     F_tendsto.mono (λ x hx, tendsto_nhds_unique hx 
       (tendsto_at_top_csupr (F_mono x) ⟨⊤, λ _ _, le_top⟩)),
-  have lintegral_F_eq : ∀ n, ∫⁻ (x : α), F n x ∂μ = ∫⁻ x in φ n, f x ∂μ,
-  { intro n,
-    dsimp [F],
-    rw lintegral_indicator _ (hφ.measurable n) },
+  have lintegral_F_eq : ∀ n, ∫⁻ (x : α), F n x ∂μ = ∫⁻ x in φ n, f x ∂μ :=
+    λ n, lintegral_indicator _ (hφ.measurable n),
   rw lintegral_congr_ae f_eq_supr_F,
   conv_rhs {congr, funext, rw ← lintegral_F_eq},
   exact lintegral_supr (λ n, hfm.indicator $ hφ.measurable n) (λ i j hij x, F_mono x hij)
