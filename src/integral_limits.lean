@@ -72,16 +72,21 @@ lemma growing_family.ae_tendsto_indicator {β : Type*} [has_zero β] [topologica
 hφ.ae_eventually_mem.mono (λ x hx, tendsto_const_nhds.congr' $
   hx.mono $ λ n hn, (indicator_of_mem hn _).symm)
 
+lemma growing_family_restrict_of_ae_imp {s : set α} {φ : ℕ → set α} 
+  (hs : measurable_set s) (ae_eventually_mem : ∀ᵐ x ∂μ, x ∈ s → ∀ᶠ n in at_top, x ∈ φ n)
+  (mono : monotone φ) (measurable : ∀ n, measurable_set $ φ n) :
+  growing_family (μ.restrict s) φ :=
+{ ae_eventually_mem := by rwa ae_restrict_iff' hs,
+  mono := mono,
+  measurable := measurable }
+
 lemma growing_family.inter_restrict {φ : ℕ → set α} (hφ : growing_family μ φ) 
   {s : set α} (hs : measurable_set s) :
   growing_family (μ.restrict s) (λ n, φ n ∩ s) :=
-{ ae_eventually_mem := 
-  begin
-    rw ae_restrict_iff' hs,
-    refine hφ.ae_eventually_mem.mono (λ x hx hxs, hx.mono $ λ n hn, ⟨hn, hxs⟩),
-  end,
-  mono := λ i j hij, inter_subset_inter_left s (hφ.mono hij),
-  measurable := λ n, (hφ.measurable n).inter hs }
+growing_family_restrict_of_ae_imp hs 
+  (hφ.ae_eventually_mem.mono (λ x hx hxs, hx.mono $ λ n hn, ⟨hn, hxs⟩))
+  (λ i j hij, inter_subset_inter_left s (hφ.mono hij))
+  (λ n, (hφ.measurable n).inter hs)
 
 end growing_family
 
@@ -125,6 +130,29 @@ end
 lemma eventually_ne_of_tendsto_nhds {β : Type*} [topological_space β] [t1_space β] {f : α → β} {b b' : β}
   (hbb' : b ≠ b') {l : filter α} (hf : tendsto f l (𝓝 b)) : ∀ᶠ x in l, f x ≠ b' :=
 hf (compl_singleton_mem_nhds hbb')
+
+lemma eventually_le_of_tendsto_of_tendsto_of_lt {β : Type*} [linear_order β] [topological_space β] 
+  [order_topology β] {f g : α → β} {b b' : β} (hbb' : b < b') {l : filter α} 
+  (hf : tendsto f l (𝓝 b)) (hg : tendsto g l (𝓝 b')) : 
+  f ≤ᶠ[l] g :=
+begin
+  rcases order_separated hbb' with ⟨u, v, hu, hv, hub, hvb', huv⟩,
+  have hfu : f ⁻¹' u ∈ l := hf (mem_nhds_sets hu hub),
+  have hgv : g ⁻¹' v ∈ l := hg (mem_nhds_sets hv hvb'),
+  exact eventually_of_mem (inter_mem_sets hfu hgv) (λ x ⟨hxu, hxv⟩, (huv _ hxu _ hxv).le),
+end
+
+lemma le_of_tendsto_of_monotone {β : Type*} [preorder α] [linear_order β] [topological_space β] 
+  [order_closed_topology β] {f : ℕ → β} {b : β} (hmono : monotone f) 
+  (hf : tendsto f at_top (𝓝 b)) : 
+  ∀ x, f x ≤ b :=
+λ x, ge_of_tendsto hf ((eventually_ge_at_top x).mono $ λ _ h, hmono h)
+
+lemma ge_of_tendsto_of_antimono {β : Type*} [preorder α] [linear_order β] [topological_space β] 
+  [order_closed_topology β] {f : ℕ → β} {b : β} (hanti : ∀ ⦃x y⦄, x ≤ y → f y ≤ f x) 
+  (hf : tendsto f at_top (𝓝 b)) : 
+  ∀ x, b ≤ f x :=
+λ x, le_of_tendsto hf ((eventually_ge_at_top x).mono $ λ _ h, hanti h)
 
 variables {E : Type*} [normed_group E] [topological_space.second_countable_topology E] [normed_space ℝ E] 
   [complete_space E] [measurable_space E] [borel_space E]
@@ -213,7 +241,95 @@ end integral_limits
 
 section interval_integral
 
-variables {μ : measure ℝ} (a b : ℕ → ℝ) (ha₁ : ∀ ⦃x y⦄, x ≤ y → a y ≤ a x) (ha₂ : tendsto a at_top at_bot) 
-  (hb₁ : monotone b) (hb₂ : tendsto b at_top at_top)
+variables {α : Type*} {E : Type*} [topological_space α] [linear_order α] [order_closed_topology α]
+  [measurable_space α] [no_bot_order α] [opens_measurable_space α] [measurable_space E] 
+  [normed_group E] [topological_space.second_countable_topology E] [complete_space E] 
+  [normed_space ℝ E] [borel_space E] {μ : measure α} {a b : ℕ → α} 
+  (ha₁ : ∀ ⦃x y⦄, x ≤ y → a y ≤ a x) (hb₁ : monotone b) {f : α → E} (I : E) (hfm : measurable f)
+
+include ha₁ hb₁
+
+lemma monotone_ite_le_interval :
+  monotone (λ n, if a n ≤ b n then Ioc (a n) (b n) else ∅) :=
+begin
+  intros i j hij,
+  by_cases hi : a i ≤ b i,
+  { have hj : a j ≤ b j := (ha₁ hij).trans (hi.trans (hb₁ hij)),
+    simp [hi, hj, Ioc_subset_Ioc (ha₁ hij) (hb₁ hij)] },
+  { by_cases hj : a j ≤ b j;
+    simp[hi, hj] }
+end
+
+include hfm
+
+lemma integral_eq_of_tendsto_interval_integral
+  (hfi : integrable f μ) (ha₂ : tendsto a at_top at_bot) (hb₂ : tendsto b at_top at_top) 
+  (h : tendsto (λ n, ∫ x in a n .. b n, f x ∂μ) at_top (𝓝 $ I)) :
+  ∫ x, f x ∂μ = I :=
+begin
+  let φ := λ n, if a n ≤ b n then Ioc (a n) (b n) else ∅,
+  have hφ : growing_family μ φ :=
+  { ae_eventually_mem := ae_of_all _ $ λ x,
+      begin
+        filter_upwards [ha₂.eventually (eventually_lt_at_bot x), 
+                        hb₂.eventually (eventually_ge_at_top x)],
+        intros n han hbn,
+        dsimp only [φ],
+        simp [han.le.trans hbn, han, hbn]
+      end,
+    mono := monotone_ite_le_interval ha₁ hb₁,
+    measurable := 
+      begin
+        intro n,
+        dsimp only [φ],
+        split_ifs with h,
+        { exact measurable_set_Ioc },
+        { exact measurable_set.empty }
+      end },
+  refine integral_eq_of_tendsto_integral hφ _ hfm hfi (h.congr' _),
+  filter_upwards [ha₂.eventually (eventually_le_at_bot $ b 0)],
+  intros n han, 
+  have : a n ≤ b n := han.trans (hb₁ $ zero_le n),
+  convert interval_integral.integral_of_le this,
+  simp [φ, this]
+end
+
+lemma interval_integral_eq_of_tendsto_interval_integral [order_topology α] 
+  [has_no_atoms μ] {la lb : α} (hl : la < lb)
+  (hfi : interval_integrable f μ la lb) (ha₂ : tendsto a at_top (𝓝 la)) 
+  (hb₂ : tendsto b at_top (𝓝 lb)) 
+  (h : tendsto (λ n, ∫ x in a n .. b n, f x ∂μ) at_top (𝓝 $ I)) :
+  ∫ x in la..lb, f x ∂μ = I :=
+begin
+  let φ := λ n, if a n ≤ b n then Ioc (a n) (b n) else ∅,
+  have hφ : growing_family (μ.restrict $ Ioc la lb) φ :=
+    growing_family_restrict_of_ae_imp measurable_set_Ioc
+      (
+        begin
+          refine Ioo_ae_eq_Ioc.mono (λ x (heq : (x ∈ Ioo la lb) = (x ∈ Ioc la lb)) hx, _),
+          have hx : x ∈ Ioo la lb := heq.symm ▸ hx,
+          refine (eventually_le_of_tendsto_lt hx.1 ha₂).mp _,
+          refine (eventually_ge_of_tendsto_gt hx.2 hb₂).mono _,
+          intros n hbx hax,
+          dsimp only [φ],
+          split_ifs,
+        end
+      )
+      (monotone_ite_le_interval ha₁ hb₁)
+      _,
+  rw interval_integral.integral_of_le hl.le,
+  refine integral_eq_of_tendsto_integral hφ _ hfm hfi.1 (h.congr' _),
+  filter_upwards [eventually_le_of_tendsto_of_tendsto_of_lt hl ha₂ hb₂],
+  intros n han, 
+  have hφ₂ : φ n = Ioc (a n) (b n),
+  { dsimp only [φ],
+    split_ifs,
+    refl }, 
+  have ha₃ := ge_of_tendsto_of_antimono ha₁ ha₂ n,
+  have hb₃ := le_of_tendsto_of_monotone hb₁ hb₂ n,
+  have : φ n ⊆ Ioc la lb := hφ₂.symm ▸ Ioc_subset_Ioc ha₃ hb₃,
+  rw [measure.restrict_restrict, inter_eq_self_of_subset_left this, hφ₂],
+  exact interval_integral.integral_of_le han,
+end
 
 end interval_integral
