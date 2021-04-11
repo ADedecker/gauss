@@ -188,7 +188,7 @@ begin
   rw add_eq_zero_iff_eq_neg,
   calc  ∫ (t : ℝ) in 0..1, (-2) * x * real.exp (-(1 + t ^ 2) * x ^ 2)
       = ∫ (t : ℝ) in 0..1, (-2) * x * real.exp (-(t * x) ^ 2 + -x ^ 2) :
-        by conv in (-(1+_^2)*x^2) { ring, rw [← mul_pow, mul_comm, sub_eq_add_neg] }
+        by conv in (-(1+_^2)*x^2) { ring_nf, rw [← mul_pow, mul_comm, sub_eq_add_neg] }
   ... = ∫ t in 0..1, (-2) * x * (real.exp (-x ^ 2) * real.exp (-(t * x) ^ 2)) : 
         by conv in (real.exp _) { rw real.exp_add, rw mul_comm }
   ... = ∫ t in 0..1, (-2 * real.exp (-x ^ 2)) * (real.exp (-(t * x) ^ 2) * x) : 
@@ -243,7 +243,7 @@ calc (real.exp (-(1+t^2)*x^2))/(1+t^2)
   ... ≤ real.exp (1*(-x^2)) : real.exp_monotone 
           (mul_mono_nonpos (neg_nonpos.mpr $ pow_two_nonneg x) key₁)
   ... = real.exp (-x^2) : by rw one_mul
-  ... = real.exp (x*(-x)) : by ring
+  ... = real.exp (x*(-x)) : by ring_nf
   ... ≤ real.exp (1*(-x)) : real.exp_monotone
           (mul_mono_nonpos (neg_nonpos.mpr $ zero_le_one.trans hx) hx)
   ... = real.exp (-x) : by rw one_mul
