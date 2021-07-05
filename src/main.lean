@@ -1,12 +1,7 @@
-import measure_theory.integration
-import measure_theory.bochner_integration
-import measure_theory.lebesgue_measure
-import measure_theory.interval_integral
+import measure_theory.integral_eq_improper
 import analysis.special_functions.exp_log
 import analysis.special_functions.trigonometric
 import topology.uniform_space.compact_separated
-import geometry.euclidean.triangle
-import integral_limits
 
 noncomputable theory
 
@@ -43,6 +38,15 @@ begin
   conv in (_ / _) { rw [← neg_div_neg_eq, neg_sub, neg_sub] }
 end
 
+lemma has_deriv_at_parametric {a b : ℝ} (hab : a < b) (f f' : ℝ → ℝ → ℝ) 
+  (hff' : ∀ x t, has_deriv_at (λ u, f u t) (f' x t) x)
+  (hf : continuous ↿f) (hf' : continuous ↿f') (x₀ : ℝ) :
+has_deriv_at (λ x, ∫ t in a..b, f x t) (∫ t in a..b, f' x₀ t) x₀ :=
+begin
+  sorry
+end
+
+/-
 lemma has_deriv_at_parametric {a b : ℝ} (hab : a < b) (f f' : ℝ → ℝ → ℝ) 
   (hff' : ∀ x t, has_deriv_at (λ u, f u t) (f' x t) x)
   (hf : continuous ↿f) (hf' : continuous ↿f') (x₀ : ℝ) :
@@ -131,6 +135,7 @@ begin
   ... < ε : by linarith [hε],
   all_goals {apply_instance}
 end
+-/
 
 lemma continuous_gauss : continuous (λ x, real.exp (-x^2)) := by continuity; exact complex.continuous_exp
 
@@ -205,8 +210,7 @@ begin
         begin
           congr,
           refine integral_eq_sub_of_has_deriv_at (key1 x) (continuous.continuous_on _),
-          continuity,
-          exact complex.continuous_exp
+          continuity        
         end
   ... = (-2 * real.exp (-x ^ 2)) * ∫ t in 0..x, real.exp (-t ^ 2) : by simp
   ... = -(2 * real.exp (-x ^ 2) * ∫ t in 0..x, real.exp (-t ^ 2)) : by ring
@@ -252,11 +256,11 @@ lemma g_le : g ≤ᶠ[at_top] (λ x, real.exp (-x)) :=
 begin
   dsimp [g],
   refine ((eventually_ge_at_top 1).mono $ λ x hx, _),
-  convert integral_mono _ _ zero_le_one (g_le_key x hx),
+  convert interval_integral.integral_mono (zero_le_one : (0 : ℝ) ≤ 1) _ _ (g_le_key x hx),
   { rw interval_integral.integral_const,
     simp },
   { refine (continuous.div _ _ _).interval_integrable 0 1,
-    { continuity, exact complex.continuous_exp },
+    { continuity },
     { continuity },
     { intro x, linarith [pow_two_nonneg x] } },
   { exact continuous.interval_integrable (by continuity) 0 1 },
@@ -285,10 +289,10 @@ end
 
 lemma f_tendsto : tendsto f at_top (𝓝 $ real.pi.sqrt / 2) :=
 begin
-  rw [← real.sqrt_sqr zero_le_two, ← real.sqrt_div real.pi_pos.le],
+  rw [← real.sqrt_sq zero_le_two, ← real.sqrt_div real.pi_pos.le],
   norm_num,
   refine f_square_tendsto.sqrt.congr' _,
-  refine (eventually_ge_at_top 0).mono (λ x hx, real.sqrt_sqr _),
+  refine (eventually_ge_at_top 0).mono (λ x hx, real.sqrt_sq _),
   dsimp [f],
   rw integral_of_le hx,
   refine integral_nonneg (λ t, (real.exp_pos _).le),
@@ -303,26 +307,25 @@ begin
       (continuous_gauss.interval_integrable (-x) 0) 
       (continuous_gauss.interval_integrable 0 x)],
     refine congr_arg2 (+) _ rfl,
-    conv in (real.exp _) {rw ← neg_square, change (λ t, real.exp (-t^2)) (-t)},
+    conv in (real.exp _) {rw ← neg_sq, change (λ t, real.exp (-t^2)) (-t)},
     rw [integral_comp_neg (λ t, real.exp (-t^2)), neg_zero],
     all_goals {apply_instance} },
   { linarith }
 end
 
-lemma tendsto_gauss_integral_symm_Ioc : 
-  tendsto (λ x, ∫ t in Ioc (-x) x, real.exp (-t^2)) at_top (𝓝 real.pi.sqrt) :=
-tendsto_gauss_integral_symm_interval.congr' 
-  ((eventually_ge_at_top 0).mono $ λ x hx, integral_of_le (neg_le_self hx))
+lemma gauss_integrable : integrable (λ x, real.exp (-x^2)) :=
+begin
+  refine integrable_of_interval_integral_norm_tendsto at_top_countably_generated_of_archimedean 
+    (continuous_gauss.ae_measurable _) real.pi.sqrt 
+    (λ i, continuous_gauss.integrable_on_Icc.mono_set Ioc_subset_Icc_self) 
+    tendsto_neg_at_top_at_bot tendsto_id _,
+  conv in (norm _) {rw real.norm_of_nonneg (-x^2).exp_pos.le},
+  exact tendsto_gauss_integral_symm_interval
+end
 
 lemma gauss_integral : ∫ x : ℝ, real.exp (-x^2) = real.pi.sqrt :=
 begin
-  refine integral_eq_of_tendsto_integral_of_nonneg_ae _ _
-    (ae_of_all _ $ λ x, (real.exp_pos _).le) _ _ 
-    (tendsto_gauss_integral_symm_Ioc.comp tendsto_coe_nat_at_top_at_top),
-  { refine growing_family_Ioc (λ i j hij, neg_le_neg (by exact_mod_cast hij)) 
-    (tendsto_neg_at_top_at_bot.comp _) (λ i j hij, by exact_mod_cast hij) _;
-    exact tendsto_coe_nat_at_top_at_top },
-  { exact continuous_gauss.measurable },
-  { intro n, 
-    exact (continuous_gauss.integrable_on_compact compact_Icc).mono_set Ioc_subset_Icc_self }
+  have := interval_integral_tendsto_integral at_top_countably_generated_of_archimedean
+    (continuous_gauss.ae_measurable _) gauss_integrable tendsto_neg_at_top_at_bot tendsto_id,
+  exact tendsto_nhds_unique this tendsto_gauss_integral_symm_interval,
 end
