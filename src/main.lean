@@ -1,6 +1,7 @@
 import measure_theory.integral_eq_improper
 import analysis.special_functions.exp_log
 import analysis.special_functions.trigonometric
+import analysis.calculus.parametric_integral
 import topology.uniform_space.compact_separated
 
 noncomputable theory
@@ -43,18 +44,9 @@ lemma has_deriv_at_parametric {a b : ℝ} (hab : a < b) (f f' : ℝ → ℝ → 
   (hf : continuous ↿f) (hf' : continuous ↿f') (x₀ : ℝ) :
 has_deriv_at (λ x, ∫ t in a..b, f x t) (∫ t in a..b, f' x₀ t) x₀ :=
 begin
-  sorry
-end
-
-/-
-lemma has_deriv_at_parametric {a b : ℝ} (hab : a < b) (f f' : ℝ → ℝ → ℝ) 
-  (hff' : ∀ x t, has_deriv_at (λ u, f u t) (f' x t) x)
-  (hf : continuous ↿f) (hf' : continuous ↿f') (x₀ : ℝ) :
-has_deriv_at (λ x, ∫ t in a..b, f x t) (∫ t in a..b, f' x₀ t) x₀ :=
-begin
   refine has_deriv_within_at.has_deriv_at _ (Icc_mem_nhds (sub_one_lt x₀) (lt_add_one x₀)),
-  have compact_ab : is_compact (interval a b) := compact_Icc,
-  have compact_cd : is_compact (Icc (x₀-1) (x₀+1)) := compact_Icc,
+  have compact_ab : is_compact (interval a b) := is_compact_Icc,
+  have compact_cd : is_compact (Icc (x₀-1) (x₀+1)) := is_compact_Icc,
   have := (compact_cd.prod compact_ab).uniform_continuous_on_of_continuous hf'.continuous_on,
   rw [has_deriv_within_at_iff_tendsto_slope, metric.tendsto_nhds_within_nhds],
   intros ε hε,
@@ -112,7 +104,7 @@ begin
           rw ← integral_indicator meas_ab,
           refine integral_mono _ _ (λ t, _),
           { rw integrable_indicator_iff meas_ab,
-            refine ((continuous_abs.comp _).integrable_on_compact compact_Icc).mono_set Ioc_subset_Icc_self,
+            refine ((continuous_abs.comp _).integrable_on_compact is_compact_Icc).mono_set Ioc_subset_Icc_self,
             refine key₆.sub (@continuous_uncurry_left _ _ _ _ _ _ f' x₀ hf') },
           { rw integrable_indicator_iff meas_ab,
             refine (continuous.integrable_on_compact compact_Icc _).mono_set Ioc_subset_Icc_self,
@@ -135,7 +127,6 @@ begin
   ... < ε : by linarith [hε],
   all_goals {apply_instance}
 end
--/
 
 lemma continuous_gauss : continuous (λ x, real.exp (-x^2)) := by continuity; exact complex.continuous_exp
 
